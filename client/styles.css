@@ -11,8 +11,8 @@
   --text-main: #18181b;
   --text-muted: #64748b;
   --video-bg: #27282b;
-  --btn-primary: #949feb;
-  --btn-primary-hover: #838fe3;
+  --btn-primary: #3b5bf5;
+  --btn-primary-hover: #2946d8;
   --pill-bg: #28292c;
   --pill-border: rgba(255, 255, 255, 0.05);
   --avatar-bg: #9ae5b0;
@@ -510,14 +510,15 @@ html, body {
 .join-button {
   width: 100%;
   height: 44px;
-  background-color: var(--btn-primary);
+  background: linear-gradient(180deg, #4361f7 0%, #3451e6 100%);
   color: #ffffff;
   border: none;
   border-radius: 8px;
   font-size: 15.5px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.1s ease;
+  box-shadow: 0 6px 16px rgba(52, 81, 230, 0.34);
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
   font-family: inherit;
   display: flex;
   align-items: center;
@@ -526,7 +527,8 @@ html, body {
 }
 
 .join-button:hover {
-  background-color: var(--btn-primary-hover);
+  background: linear-gradient(180deg, #3554ef 0%, #2743d4 100%);
+  box-shadow: 0 8px 20px rgba(39, 67, 212, 0.42);
 }
 
 .join-button:active {

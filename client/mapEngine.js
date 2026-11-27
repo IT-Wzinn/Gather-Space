@@ -132,22 +132,15 @@ class MapEngine {
     this.currentRoom = null;
     this.onRoomChange = null;
 
-    // Footstep Sound Effect
-    this.footstepAudio = new Audio('assets/running_footsteps.mp3');
-    this.footstepAudio.loop = true;
-    this.footstepAudio.volume = 0.5;
+    // Footstep Sound Effect (Local Player & Gentle Spatial Nearby NPCs)
+    this.footstepAudio = this.createFootstepAudio(0.5);
     this.isFootstepPlaying = false;
-    this.footstepAudio.addEventListener('error', () => {
-      if (this.footstepAudio && this.footstepAudio.src.indexOf('running_footsteps.mp3') !== -1) {
-        this.footstepAudio.src = 'assets/audio/running_footsteps.mp3';
-        this.footstepAudio.load();
-      }
-    });
+    this.npcFootstepAudio = this.createFootstepAudio(0);
+    this.isNpcFootstepPlaying = false;
 
     const unlockAudio = () => {
-      if (this.footstepAudio) {
-        this.footstepAudio.load();
-      }
+      if (this.footstepAudio) this.footstepAudio.load();
+      if (this.npcFootstepAudio) this.npcFootstepAudio.load();
       window.removeEventListener('click', unlockAudio);
       window.removeEventListener('keydown', unlockAudio);
       window.removeEventListener('touchstart', unlockAudio);
@@ -160,6 +153,10 @@ class MapEngine {
       if (this.footstepAudio && !this.footstepAudio.paused) {
         this.footstepAudio.pause();
         this.isFootstepPlaying = false;
+      }
+      if (this.npcFootstepAudio && !this.npcFootstepAudio.paused) {
+        this.npcFootstepAudio.pause();
+        this.isNpcFootstepPlaying = false;
       }
     });
 
@@ -2239,7 +2236,8 @@ class MapEngine {
       this.clampCamera();
     }
 
-    // Update Remote Players Animation & Movement Dust (Phase 2)
+    // Update Remote Players Animation, Movement Dust & Nearby NPC Footsteps
+    let closestMovingNpcDist = Infinity;
     this.remotePlayers.forEach((rp) => {
       if (rp.isMoving) {
         rp.animTimer = (rp.animTimer || 0) + dt;
@@ -2253,11 +2251,20 @@ class MapEngine {
           rp.dustTimer = 0;
           this.emitMovementDust(rp.x, rp.y, rp.direction, false);
         }
+
+        if (rp.isNpc) {
+          const distToLocal = Math.hypot(rp.x - this.player.x, rp.y - this.player.y);
+          if (distToLocal < closestMovingNpcDist) {
+            closestMovingNpcDist = distToLocal;
+          }
+        }
       } else {
         rp.frameIndex = 0;
         rp.dustTimer = 0;
       }
     });
+
+    this.updateNpcFootstepAudio(closestMovingNpcDist);
 
     // Update Movement Dust Particles
     this.updateDustParticles(dt);
@@ -2301,6 +2308,55 @@ class MapEngine {
         seatId: this.player.seatId || null,
         currentRoom: newRoomId
       });
+    }
+  }
+
+  createFootstepAudio(initialVolume = 0.5) {
+    const audio = new Audio('assets/running_footsteps.mp3');
+    audio.loop = true;
+    audio.volume = initialVolume;
+    audio.addEventListener('error', () => {
+      if (audio.src.indexOf('running_footsteps.mp3') !== -1) {
+        audio.src = 'assets/audio/running_footsteps.mp3';
+        audio.load();
+      }
+    });
+    return audio;
+  }
+
+  /**
+   * Plays soft spatial footsteps when autonomous NPCs walk nearby the controlled character.
+   */
+  updateNpcFootstepAudio(closestNpcDist) {
+    if (!this.npcFootstepAudio) return;
+    const officeView = document.getElementById('officeView');
+    const inOffice = !!(officeView && !officeView.classList.contains('hidden'));
+    const NPC_HEAR_RADIUS = 240; // ~7.5 tiles around player
+    const MAX_NPC_VOLUME = 0.14; // Subtle ambient volume compared to local 0.5
+
+    if (inOffice && closestNpcDist < NPC_HEAR_RADIUS) {
+      const norm = Math.max(0, 1 - closestNpcDist / NPC_HEAR_RADIUS);
+      const targetVol = Math.round(MAX_NPC_VOLUME * norm * norm * 1000) / 1000;
+      if (targetVol > 0.008) {
+        this.npcFootstepAudio.volume = targetVol;
+        if (this.npcFootstepAudio.playbackRate !== 0.85) {
+          this.npcFootstepAudio.playbackRate = 0.85;
+        }
+        if (!this.isNpcFootstepPlaying) {
+          this.isNpcFootstepPlaying = true;
+          const p = this.npcFootstepAudio.play();
+          if (p !== undefined) {
+            p.catch(() => { this.isNpcFootstepPlaying = false; });
+          }
+        }
+        return;
+      }
+    }
+
+    if (this.isNpcFootstepPlaying || !this.npcFootstepAudio.paused) {
+      this.isNpcFootstepPlaying = false;
+      this.npcFootstepAudio.pause();
+      this.npcFootstepAudio.currentTime = 0;
     }
   }
 
