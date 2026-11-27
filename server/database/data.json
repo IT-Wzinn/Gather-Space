@@ -1,0 +1,235 @@
+{
+  "users": {
+    "1": {
+      "name": "1",
+      "characterId": "char_1",
+      "lastSeen": 1795784992195
+    },
+    "2": {
+      "name": "2",
+      "characterId": "char_1",
+      "lastSeen": 1795784994220
+    },
+    "3": {
+      "name": "3",
+      "characterId": "char_1",
+      "lastSeen": 1795784995553
+    },
+    "4": {
+      "name": "4",
+      "characterId": "char_1",
+      "lastSeen": 1795784997294
+    },
+    "vinh dev": {
+      "name": "Vinh Dev",
+      "characterId": "char_1",
+      "lastSeen": 1795591302051
+    },
+    "bảo pm": {
+      "name": "Bảo PM",
+      "characterId": "char_1",
+      "lastSeen": 1795591302056
+    },
+    "người mới c3": {
+      "name": "Người mới C3",
+      "characterId": "char_1",
+      "lastSeen": 1795591303188
+    },
+    "observer c2": {
+      "name": "Observer C2",
+      "characterId": "char_1",
+      "lastSeen": 1795591534141
+    },
+    "spammer c1": {
+      "name": "Spammer C1",
+      "characterId": "char_1",
+      "lastSeen": 1795591534138
+    },
+    "lữ quốc vinh": {
+      "name": "Lữ Quốc Vinh",
+      "characterId": "char_1",
+      "lastSeen": 1795785766044
+    },
+    "nguyễn văn a": {
+      "name": "Nguyễn Văn A",
+      "characterId": "char_2",
+      "lastSeen": 1795594106256
+    },
+    "lư quốc vinh": {
+      "name": "Lư Quốc Vinh",
+      "characterId": "char_9",
+      "lastSeen": 1795785756854
+    },
+    "ádf": {
+      "name": "ádf",
+      "characterId": "char_1",
+      "lastSeen": 1795666563392
+    },
+    "vinhlq0526": {
+      "name": "vinhlq0526",
+      "characterId": "char_1",
+      "lastSeen": 1795785668707
+    },
+    "abc": {
+      "name": "ABC",
+      "characterId": "char_1",
+      "lastSeen": 1795672394931
+    },
+    "alice": {
+      "name": "Alice",
+      "characterId": "char_1",
+      "lastSeen": 1795689466896
+    },
+    "minh anh": {
+      "name": "Minh Anh",
+      "characterId": "char_1",
+      "lastSeen": 1795785643522
+    },
+    "người chơi 1": {
+      "name": "Người chơi 1",
+      "characterId": "char_1",
+      "lastSeen": 1795741840443
+    },
+    "người chơi 2": {
+      "name": "Người chơi 2",
+      "characterId": "char_1",
+      "lastSeen": 1795741842590
+    },
+    "người chơi 3": {
+      "name": "Người chơi 3",
+      "characterId": "char_1",
+      "lastSeen": 1795741844861
+    },
+    "vinh": {
+      "name": "Vinh",
+      "characterId": "char_1",
+      "lastSeen": 1795773731214
+    },
+    "quốc bảo": {
+      "name": "Quốc Bảo",
+      "characterId": "char_1",
+      "lastSeen": 1795785645181
+    },
+    "thảo vy": {
+      "name": "Thảo Vy",
+      "characterId": "char_1",
+      "lastSeen": 1795785647398
+    },
+    "hoàng nam": {
+      "name": "Hoàng Nam",
+      "characterId": "char_1",
+      "lastSeen": 1795785649218
+    }
+  },
+  "rooms": {
+    "reception": {
+      "id": "reception",
+      "name": "Sảnh Lễ Tân",
+      "topic": "Chào đón thành viên mới"
+    },
+    "central_lounge": {
+      "id": "central_lounge",
+      "name": "Sảnh Nghỉ Ngơi",
+      "topic": "Khu vực giao lưu & trò chuyện"
+    },
+    "open_workspace": {
+      "id": "open_workspace",
+      "name": "Khu Làm Việc Chung",
+      "topic": "Không gian làm việc nhóm Agile"
+    },
+    "large_boardroom": {
+      "id": "large_boardroom",
+      "name": "Phòng Họp Lớn",
+      "topic": "Họp chiến lược & Trình bày đồ án"
+    },
+    "small_meeting": {
+      "id": "small_meeting",
+      "name": "Phòng Họp Nhỏ",
+      "topic": "Thảo luận kỹ thuật 1:1"
+    },
+    "library_room": {
+      "id": "library_room",
+      "name": "Phòng Thư Viện",
+      "topic": "Nghiên cứu tài liệu mạng"
+    }
+  },
+  "chat_history": [
+    {
+      "id": "msg_1795591304316_4k3ca9",
+      "senderName": "Vinh Dev",
+      "text": "Tin nhắn kiểm thử lưu trữ Database Phase 5",
+      "scope": "everyone",
+      "timestamp": 1795591304316
+    },
+    {
+      "id": "msg_1795663099816_uf3j37",
+      "senderName": "Lư Quốc Vinh",
+      "text": "👋 Vẫy tay chào @ádf!",
+      "scope": "everyone",
+      "timestamp": 1795663099816
+    },
+    {
+      "id": "msg_1795664887448_dffwmh",
+      "senderName": "Lữ Quốc Vinh",
+      "text": "@vinhlq0526: Xin chào vinhlq0526!",
+      "scope": "everyone",
+      "timestamp": 1795664887448
+    },
+    {
+      "id": "msg_1795664887867_vb3gdm",
+      "senderName": "Lữ Quốc Vinh",
+      "text": "👋 Vẫy tay chào @vinhlq0526!",
+      "scope": "everyone",
+      "timestamp": 1795664887867
+    },
+    {
+      "id": "msg_1795669451276_vkarok",
+      "senderName": "Lư Quốc Vinh",
+      "text": "👋 Vẫy tay chào @ABC!",
+      "scope": "everyone",
+      "timestamp": 1795669451276
+    },
+    {
+      "id": "msg_1795669455408_sktntl",
+      "senderName": "Lư Quốc Vinh",
+      "text": "👋 Vẫy tay chào @ABC!",
+      "scope": "everyone",
+      "timestamp": 1795669455408
+    },
+    {
+      "id": "msg_1795690283251_nyyw3v",
+      "senderName": "Lư Quốc Vinh",
+      "text": "@Lữ Quốc Vinh: 123",
+      "scope": "everyone",
+      "timestamp": 1795690283251
+    },
+    {
+      "id": "msg_1795753569898_v2pyzj",
+      "senderName": "Lữ Quốc Vinh",
+      "text": "@Lư Quốc Vinh: hi",
+      "scope": "everyone",
+      "timestamp": 1795753569899
+    },
+    {
+      "id": "msg_1795766612461_dnz2f4",
+      "senderName": "Lữ Quốc Vinh",
+      "text": "👋 Vẫy tay chào @vinhlq0526!",
+      "scope": "everyone",
+      "timestamp": 1795766612461
+    },
+    {
+      "id": "msg_1795767247378_tqq0z9",
+      "senderName": "Lữ Quốc Vinh",
+      "text": "👋 Vẫy tay chào @vinhlq0526!",
+      "scope": "everyone",
+      "timestamp": 1795767247379
+    },
+    {
+      "id": "msg_1795767253524_uaeu30",
+      "senderName": "Lữ Quốc Vinh",
+      "text": "Kênh #social hoạt động *tuyệt vời*!",
+      "scope": "everyone",
+      "timestamp": 1795767253524
+    }
+  ]
+}

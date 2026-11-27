@@ -1,0 +1,339 @@
+{
+  "mapSize": {
+    "width": 3840,
+    "height": 3072,
+    "tilesX": 120,
+    "tilesY": 96,
+    "tileSize": 32
+  },
+  "rooms": [
+    {
+      "id": "reception",
+      "num": "1",
+      "name": "SẢNH LỄ TÂN",
+      "sub": "Reception Lobby • Welcome & Spawn",
+      "x": 43,
+      "y": 58,
+      "w": 23,
+      "h": 18,
+      "isDetailedPixelArt": true,
+      "accent": "#2563eb",
+      "door": {
+        "x": 52,
+        "y": 58,
+        "w": 4
+      },
+      "spawn": {
+        "x": 1728,
+        "y": 2208
+      }
+    },
+    {
+      "id": "central_lounge",
+      "num": "2",
+      "name": "TIẾP KHÁCH & NGHỈ NGƠI TRUNG TÂM",
+      "sub": "Central Lounge • Social Hub",
+      "x": 43,
+      "y": 32,
+      "w": 23,
+      "h": 18,
+      "isDetailedPixelArt": true,
+      "accent": "#b45309",
+      "doors": [
+        {
+          "x": 52,
+          "y": 50,
+          "w": 4
+        },
+        {
+          "x": 52,
+          "y": 32,
+          "w": 4
+        },
+        {
+          "x": 43,
+          "y": 38,
+          "w": 3
+        },
+        {
+          "x": 66,
+          "y": 38,
+          "w": 3
+        }
+      ]
+    },
+    {
+      "id": "zen_garden",
+      "num": "3",
+      "name": "VƯỜN TIỂU CẢNH & HỒ CÁ KOI",
+      "sub": "Indoor Zen Garden & Koi Pond",
+      "x": 21,
+      "y": 32,
+      "w": 14,
+      "h": 18,
+      "isDetailedPixelArt": true,
+      "accent": "#059669",
+      "hasPond": true,
+      "doors": [
+        {
+          "x": 21,
+          "y": 38,
+          "w": 3
+        },
+        {
+          "x": 35,
+          "y": 38,
+          "w": 3
+        },
+        {
+          "x": 26,
+          "y": 50,
+          "w": 4
+        }
+      ]
+    },
+    {
+      "id": "open_workspace",
+      "num": "4",
+      "name": "KHU VỰC LÀM VIỆC CHUNG (TEAM)",
+      "sub": "Open Team Workspace • Dev / Design / Marketing",
+      "x": 7,
+      "y": 58,
+      "w": 28,
+      "h": 18,
+      "isDetailedPixelArt": true,
+      "accent": "#475569",
+      "doors": [
+        {
+          "x": 27,
+          "y": 58,
+          "w": 4
+        },
+        {
+          "x": 35,
+          "y": 65,
+          "w": 3
+        }
+      ]
+    },
+    {
+      "id": "large_boardroom",
+      "num": "5",
+      "name": "PHÒNG HỌP LỚN",
+      "sub": "Executive Boardroom • 14 Seats & Presentation",
+      "x": 7,
+      "y": 7,
+      "w": 28,
+      "h": 17,
+      "isDetailedPixelArt": true,
+      "accent": "#4f46e5",
+      "doors": [
+        {
+          "x": 19,
+          "y": 24,
+          "w": 4
+        }
+      ]
+    },
+    {
+      "id": "small_meeting",
+      "num": "6",
+      "name": "PHÒNG HỌP NHỎ",
+      "sub": "Small Huddle Room • 6 Seats",
+      "x": 7,
+      "y": 32,
+      "w": 11,
+      "h": 18,
+      "isDetailedPixelArt": true,
+      "accent": "#0284c7",
+      "doors": [
+        {
+          "x": 18,
+          "y": 38,
+          "w": 3
+        },
+        {
+          "x": 11,
+          "y": 32,
+          "w": 3
+        }
+      ]
+    },
+    {
+      "id": "private_office_1",
+      "num": "7A",
+      "name": "PHÒNG RIÊNG 1 (CEO)",
+      "sub": "Executive Suite 01",
+      "x": 74,
+      "y": 7,
+      "w": 13,
+      "h": 13,
+      "isDetailedPixelArt": true,
+      "accent": "#c2410c",
+      "doors": [
+        {
+          "x": 79,
+          "y": 20,
+          "w": 3
+        }
+      ]
+    },
+    {
+      "id": "private_office_2",
+      "num": "7B",
+      "name": "PHÒNG RIÊNG 2 (DIRECTOR)",
+      "sub": "Executive Suite 02",
+      "x": 91,
+      "y": 7,
+      "w": 13,
+      "h": 13,
+      "isDetailedPixelArt": true,
+      "accent": "#2563eb",
+      "doors": [
+        {
+          "x": 96,
+          "y": 20,
+          "w": 3
+        }
+      ]
+    },
+    {
+      "id": "private_office_3",
+      "num": "7C",
+      "name": "PHÒNG RIÊNG 3 (MANAGER)",
+      "sub": "Focus Studio 01",
+      "x": 74,
+      "y": 27,
+      "w": 13,
+      "h": 13,
+      "isDetailedPixelArt": true,
+      "accent": "#d97706",
+      "doors": [
+        {
+          "x": 79,
+          "y": 40,
+          "w": 3
+        }
+      ]
+    },
+    {
+      "id": "private_office_4",
+      "num": "7D",
+      "name": "PHÒNG RIÊNG 4 (FOCUS POD)",
+      "sub": "Focus Studio 02",
+      "x": 91,
+      "y": 27,
+      "w": 13,
+      "h": 13,
+      "isDetailedPixelArt": true,
+      "accent": "#7c3aed",
+      "doors": [
+        {
+          "x": 96,
+          "y": 40,
+          "w": 3
+        }
+      ]
+    },
+    {
+      "id": "library_room",
+      "num": "8",
+      "name": "PHÒNG ĐỌC SÁCH & THẢO LUẬN",
+      "sub": "Library & Quiet Discussion Room",
+      "x": 74,
+      "y": 46,
+      "w": 30,
+      "h": 13,
+      "isDetailedPixelArt": true,
+      "accent": "#334155",
+      "doors": [
+        {
+          "x": 74,
+          "y": 50,
+          "w": 3
+        },
+        {
+          "x": 87,
+          "y": 46,
+          "w": 3
+        }
+      ]
+    },
+    {
+      "id": "quiet_lounge",
+      "num": "9",
+      "name": "PHÒNG THƯ GIÃN & TIẾP KHÁCH NHỎ",
+      "sub": "Quiet Relaxation Room • Acoustic Lounge",
+      "x": 74,
+      "y": 62,
+      "w": 30,
+      "h": 15,
+      "isDetailedPixelArt": true,
+      "accent": "#4338ca",
+      "doors": [
+        {
+          "x": 74,
+          "y": 67,
+          "w": 3
+        },
+        {
+          "x": 87,
+          "y": 62,
+          "w": 3
+        }
+      ]
+    },
+    {
+      "id": "pantry_bar",
+      "num": "10",
+      "name": "QUẦY PANTRY & CAFE",
+      "sub": "Coffee Bar & Beverage Station",
+      "x": 43,
+      "y": 7,
+      "w": 10,
+      "h": 17,
+      "isDetailedPixelArt": true,
+      "accent": "#0284c7",
+      "doors": [
+        {
+          "x": 46,
+          "y": 24,
+          "w": 3
+        },
+        {
+          "x": 53,
+          "y": 14,
+          "w": 3
+        }
+      ]
+    },
+    {
+      "id": "cafeteria_dining",
+      "num": "11",
+      "name": "PHÒNG ĂN (CAFETERIA)",
+      "sub": "Communal Dining & Lunch Area",
+      "x": 55,
+      "y": 7,
+      "w": 11,
+      "h": 17,
+      "isDetailedPixelArt": true,
+      "accent": "#ea580c",
+      "doors": [
+        {
+          "x": 55,
+          "y": 14,
+          "w": 3
+        },
+        {
+          "x": 58,
+          "y": 24,
+          "w": 3
+        }
+      ]
+    }
+  ],
+  "spawn": {
+    "x": 1632,
+    "y": 2112
+  }
+}

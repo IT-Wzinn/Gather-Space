@@ -1,0 +1,33 @@
+{
+  "name": "gather-space",
+  "version": "1.0.0",
+  "description": "Gather Space - Real-time Spatial Collaboration Space (Gather.town Clone) for Network Programming",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js",
+    "build:map": "node scripts/build_master_map.js"
+  },
+  "keywords": [
+    "gather-space",
+    "gather-town",
+    "socket.io",
+    "webrtc",
+    "network-programming",
+    "spatial-audio",
+    "realtime"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "puppeteer-core": "^25.19.0",
+    "socket.io-client": "^4.8.4"
+  }
+}
