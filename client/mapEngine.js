@@ -279,6 +279,7 @@ class MapEngine {
       currentRoom: p.currentRoom || null,
       isCallLocked: !!p.isCallLocked,
       callLockedWith: p.callLockedWith || null,
+      isCameraOn: !!p.isCameraOn,
       isNpc: !!p.isNpc,
       frameIndex: 0,
       animTimer: 0,
@@ -307,6 +308,7 @@ class MapEngine {
       if (data.currentRoom !== undefined) rp.currentRoom = data.currentRoom;
       if (data.isCallLocked !== undefined) rp.isCallLocked = data.isCallLocked;
       if (data.callLockedWith !== undefined) rp.callLockedWith = data.callLockedWith;
+      if (data.isCameraOn !== undefined) rp.isCameraOn = !!data.isCameraOn;
 
       // Immediately sync group/seated calls even if tab rAF is throttled in background
       if (!rp.isNpc) {
@@ -3702,14 +3704,22 @@ class MapEngine {
       ctx.restore();
     }
 
-    // Name badge for remote player (with selected glowing border)
+    // Name badge or live overhead webcam bubble for remote player in active call
+    const remoteCallActive = !rp.isNpc && !!rp.isCameraOn
+      && ((window.activeCallPeers && window.activeCallPeers.has(rp.id))
+        || (window.activeProximityPeer && window.activeProximityPeer.id === rp.id));
+    const remoteVidEl = remoteCallActive ? this.getRemoteVideoElementForPeer(rp.id) : null;
+    const drawRemoteCamBubble = !!(remoteCallActive && remoteVidEl && remoteVidEl.videoWidth > 0);
+
     if (spawnEffect && spawnAlpha < 1.0) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, (spawnAlpha - 0.2) / 0.8);
-      this.renderNameBadge(ctx, rp, true, isSelected);
+      if (drawRemoteCamBubble) this.renderVideoBubble(ctx, rp, remoteVidEl, rp.name);
+      else this.renderNameBadge(ctx, rp, true, isSelected);
       ctx.restore();
     } else {
-      this.renderNameBadge(ctx, rp, true, isSelected);
+      if (drawRemoteCamBubble) this.renderVideoBubble(ctx, rp, remoteVidEl, rp.name);
+      else this.renderNameBadge(ctx, rp, true, isSelected);
     }
 
     // Floating indicator diamond above nametag when selected
@@ -3945,7 +3955,10 @@ class MapEngine {
 
     const charHeight = p.height || 52;
     let anchorY = p.y - charHeight - 24;
-    if (isLocal && this.isCameraActive) {
+    const hasRemoteCamBubble = !isLocal && !p.isNpc && !!p.isCameraOn
+      && ((window.activeCallPeers && window.activeCallPeers.has(p.id))
+        || (window.activeProximityPeer && window.activeProximityPeer.id === p.id));
+    if ((isLocal && this.isCameraActive) || hasRemoteCamBubble) {
       anchorY = p.y - charHeight - 68;
     } else if (isSelected) {
       anchorY -= 16;
@@ -4143,7 +4156,24 @@ class MapEngine {
     ctx.restore();
   }
 
-  renderVideoBubble(ctx, p) {
+  getRemoteVideoElementForPeer(peerId) {
+    if (!peerId) return null;
+    const peers = window.activeCallPeers ? Array.from(window.activeCallPeers.values()) : [];
+    const idx = peers.findIndex(p => p && p.id === peerId);
+    if (idx === 0 || (peers.length === 0 && window.activeProximityPeer && window.activeProximityPeer.id === peerId)) {
+      const firstVid = document.getElementById('remoteCallVideo');
+      if (firstVid && firstVid.srcObject) return firstVid;
+    }
+    const safeId = String(peerId).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const extraCard = document.getElementById(`remoteCallCard_${safeId}`);
+    if (extraCard) {
+      const v = extraCard.querySelector('.call-card-video');
+      if (v && v.srcObject) return v;
+    }
+    return null;
+  }
+
+  renderVideoBubble(ctx, p, externalVideoEl = null, labelText = null) {
     const bw = 64;
     const bh = 58;
     const r = 8;
@@ -4190,11 +4220,23 @@ class MapEngine {
 
     ctx.imageSmoothingEnabled = true;
 
-    // Check real video elements
-    const officeVideo = document.getElementById('officeWebcamStream');
-    const prejoinVideo = document.getElementById('webcamVideo');
-    const v = (officeVideo && officeVideo.videoWidth > 0 && !officeVideo.paused) ? officeVideo :
-              (prejoinVideo && prejoinVideo.videoWidth > 0 && !prejoinVideo.paused) ? prejoinVideo : null;
+    let v = null;
+    if (externalVideoEl) {
+      if (externalVideoEl.videoWidth > 0 && externalVideoEl.readyState >= 2) {
+        if (externalVideoEl.paused) externalVideoEl.play().catch(() => {});
+        v = externalVideoEl;
+      }
+    } else {
+      const officeVideo = document.getElementById('officeWebcamStream');
+      const localCardVideo = document.getElementById('localCallVideo');
+      const prejoinVideo = document.getElementById('webcamVideo');
+      if (officeVideo && officeVideo.srcObject && officeVideo.paused) {
+        officeVideo.play().catch(() => {});
+      }
+      v = (officeVideo && officeVideo.videoWidth > 0 && !officeVideo.paused) ? officeVideo :
+          (localCardVideo && localCardVideo.videoWidth > 0 && !localCardVideo.paused) ? localCardVideo :
+          (prejoinVideo && prejoinVideo.videoWidth > 0 && !prejoinVideo.paused) ? prejoinVideo : null;
+    }
 
     let videoDrawn = false;
     if (v) {
@@ -4215,21 +4257,19 @@ class MapEngine {
         sy = (vh - sh) / 2;
       }
       ctx.save();
-      // Mirror horizontally
-      ctx.translate(x + bw, y);
-      ctx.scale(-1, 1);
-      ctx.drawImage(v, sx, sy, sw, sh, 0, 0, bw, bh);
+      if (!externalVideoEl) {
+        // Mirror local camera horizontally
+        ctx.translate(x + bw, y);
+        ctx.scale(-1, 1);
+        ctx.drawImage(v, sx, sy, sw, sh, 0, 0, bw, bh);
+      } else {
+        ctx.drawImage(v, sx, sy, sw, sh, x, y, bw, bh);
+      }
       ctx.restore();
       videoDrawn = true;
     }
 
-    // Fallback: draw authentic mock user webcam if real video not streaming
-    if (!videoDrawn && this.mockWebcamLoaded && this.mockWebcamImg.complete) {
-      ctx.drawImage(this.mockWebcamImg, 0, 0, this.mockWebcamImg.width, this.mockWebcamImg.height, x, y, bw, bh);
-      videoDrawn = true;
-    }
-
-    // Fallback 2: simulated animated avatar pattern
+    // Fallback: clean initial circle while stream is warming up
     if (!videoDrawn) {
       const grad = ctx.createLinearGradient(x, y, x + bw, y + bh);
       grad.addColorStop(0, '#1e293b');
@@ -4237,7 +4277,6 @@ class MapEngine {
       ctx.fillStyle = grad;
       ctx.fillRect(x, y, bw, bh);
 
-      // User initial or avatar circle
       ctx.fillStyle = '#6366f1';
       ctx.beginPath();
       ctx.arc(x + bw / 2, y + bh / 2, 16, 0, Math.PI * 2);
@@ -4249,6 +4288,18 @@ class MapEngine {
       ctx.textBaseline = 'middle';
       const initial = (p.name || 'L').charAt(0).toUpperCase();
       ctx.fillText(initial, x + bw / 2, y + bh / 2);
+    }
+
+    // Compact name label pill at bottom of remote overhead bubble
+    if (labelText) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+      ctx.fillRect(x, y + bh - 14, bw, 14);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const shortName = String(labelText).slice(0, 11);
+      ctx.fillText(shortName, x + bw / 2, y + bh - 7);
     }
 
     ctx.restore(); // restore video clip

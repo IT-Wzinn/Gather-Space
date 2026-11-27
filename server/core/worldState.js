@@ -84,6 +84,7 @@ class WorldState {
       currentRoom: data.currentRoom || 'reception',
       isCallLocked: false,
       callLockedWith: null,
+      isCameraOn: !!data.isCameraOn,
       joinedAt: Date.now()
     };
     this.players.set(socketId, player);

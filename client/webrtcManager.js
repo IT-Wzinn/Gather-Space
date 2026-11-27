@@ -38,21 +38,45 @@ class WebRTCManager {
   }
 
   setLocalStream(stream) {
-    this.localStream = stream;
-    // Cập nhật track mới cho toàn bộ các peer đang kết nối
-    if (stream) {
-      this.peers.forEach((pc) => {
+    this.localStream = stream || null;
+    const replacementVideoTrack = stream
+      ? stream.getVideoTracks()[0] || null
+      : (this.getOrCreatePlaceholderStream()?.getVideoTracks()[0] || null);
+    const replacementAudioTrack = stream ? stream.getAudioTracks()[0] || null : null;
+
+    // Cập nhật track mới (hoặc khôi phục placeholder khi tắt cam) cho toàn bộ các peer đang kết nối
+    this.peers.forEach((pc) => {
+      const transceivers = typeof pc.getTransceivers === 'function' ? pc.getTransceivers() : [];
+      const findSenderByKind = (kind) => {
         const senders = pc.getSenders();
-        stream.getTracks().forEach((track) => {
-          const sender = senders.find(s => s.track && s.track.kind === track.kind);
-          if (sender) {
-            sender.replaceTrack(track);
-          } else {
-            pc.addTrack(track, stream);
-          }
-        });
-      });
-    }
+        let s = senders.find(x => x.track && x.track.kind === kind);
+        if (!s) {
+          const tr = transceivers.find(t =>
+            (t.sender && t.sender.track && t.sender.track.kind === kind)
+            || (t.receiver && t.receiver.track && t.receiver.track.kind === kind)
+          );
+          if (tr) s = tr.sender;
+        }
+        return s;
+      };
+
+      if (replacementVideoTrack) {
+        const vSender = findSenderByKind('video');
+        if (vSender) {
+          vSender.replaceTrack(replacementVideoTrack).catch(err => console.warn('[WebRTC] replaceTrack video failed:', err));
+        } else if (stream) {
+          pc.addTrack(replacementVideoTrack, stream);
+        }
+      }
+      if (replacementAudioTrack) {
+        const aSender = findSenderByKind('audio');
+        if (aSender) {
+          aSender.replaceTrack(replacementAudioTrack).catch(err => console.warn('[WebRTC] replaceTrack audio failed:', err));
+        } else if (stream) {
+          pc.addTrack(replacementAudioTrack, stream);
+        }
+      }
+    });
   }
 
   /**

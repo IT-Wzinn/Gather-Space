@@ -38,6 +38,12 @@ if (typeof io !== 'undefined') {
   // Receive full roster of existing players in office
   socket.on('CURRENT_PLAYERS', (players) => {
     console.log(`[Network] Received ${players.length} online remote player(s)`);
+    if (!window.remoteCameraStates) window.remoteCameraStates = new Map();
+    if (Array.isArray(players)) {
+      players.forEach(p => {
+        if (p && p.id && !p.isNpc) window.remoteCameraStates.set(p.id, !!p.isCameraOn);
+      });
+    }
     if (window.mapEngineInstance) {
       window.mapEngineInstance.setRemotePlayers(players);
     }
@@ -54,6 +60,10 @@ if (typeof io !== 'undefined') {
   // A new remote player joined the office
   socket.on('PLAYER_JOINED', (newPlayer) => {
     console.log(`[Network] Player joined office: "${newPlayer.name}" (${newPlayer.id})`);
+    if (!window.remoteCameraStates) window.remoteCameraStates = new Map();
+    if (newPlayer && newPlayer.id && !newPlayer.isNpc) {
+      window.remoteCameraStates.set(newPlayer.id, !!newPlayer.isCameraOn);
+    }
     if (window.mapEngineInstance) {
       window.mapEngineInstance.addRemotePlayer(newPlayer);
       if (typeof window.mapEngineInstance.triggerSpawnEffect === 'function') {
@@ -179,6 +189,22 @@ if (typeof io !== 'undefined') {
     if (!inGroupCall && !matchesSingle) return;
     if (typeof window.applyRemoteScreenShareState === 'function') {
       window.applyRemoteScreenShareState(senderPeerId, isSharing, sourceLabel);
+    }
+  });
+
+  socket.on('CAMERA_STATE', ({ senderPeerId, isCameraOn: remoteCam }) => {
+    if (!senderPeerId) return;
+    if (!window.remoteCameraStates) window.remoteCameraStates = new Map();
+    window.remoteCameraStates.set(senderPeerId, !!remoteCam);
+    if (window.mapEngineInstance && window.mapEngineInstance.remotePlayers) {
+      const rp = window.mapEngineInstance.remotePlayers.get(senderPeerId);
+      if (rp) rp.isCameraOn = !!remoteCam;
+    }
+    if (typeof renderGroupCallVideoCards === 'function') {
+      renderGroupCallVideoCards();
+    }
+    if (typeof window.syncWhiteboardParticipantsUI === 'function') {
+      window.syncWhiteboardParticipantsUI();
     }
   });
 
@@ -534,7 +560,7 @@ function setupCallLockControls() {
   }
 }
 
-function getPeerForCallCard(videoEl, placeholderEl, stream) {
+function getPeerForCallCard(videoEl, placeholderEl, stream, peerId = null) {
   if (!videoEl || !placeholderEl) return;
   if (!stream) {
     videoEl.srcObject = null;
@@ -542,13 +568,29 @@ function getPeerForCallCard(videoEl, placeholderEl, stream) {
     placeholderEl.style.display = 'flex';
     return;
   }
-  videoEl.srcObject = stream;
-  videoEl.classList.remove('active');
-  placeholderEl.style.display = 'flex';
+  if (videoEl.srcObject !== stream) {
+    videoEl.srcObject = stream;
+  }
+  const safePlay = () => {
+    const p = videoEl.play();
+    if (p !== undefined) {
+      p.catch(() => {
+        // Fallback to muted if browser blocks unmuted autoplay before interaction
+        videoEl.muted = true;
+        videoEl.play().catch(() => {});
+      });
+    }
+  };
+  safePlay();
 
   const checkDimensions = () => {
-    if (videoEl.videoWidth > 200) {
-      videoEl.play().catch(e => console.warn(e));
+    const knownCamState = peerId && window.remoteCameraStates ? window.remoteCameraStates.get(peerId) : undefined;
+    const hasLiveTrack = stream.getVideoTracks().some(t => t.readyState === 'live' && t.enabled);
+    const isRealCam = knownCamState === true
+      ? (videoEl.videoWidth > 0 && hasLiveTrack)
+      : (knownCamState === false ? false : videoEl.videoWidth > 200);
+    if (isRealCam) {
+      safePlay();
       videoEl.classList.add('active');
       placeholderEl.style.display = 'none';
     } else {
@@ -558,7 +600,8 @@ function getPeerForCallCard(videoEl, placeholderEl, stream) {
   };
   videoEl.onloadedmetadata = checkDimensions;
   videoEl.onresize = checkDimensions;
-  if (videoEl.readyState >= 1) checkDimensions();
+  videoEl.onplaying = checkDimensions;
+  checkDimensions();
 }
 
 function renderGroupCallVideoCards() {
@@ -587,7 +630,7 @@ function renderGroupCallVideoCards() {
       if (rNameElem) rNameElem.textContent = pName;
       if (rAvCircle) rAvCircle.textContent = pName.charAt(0).toUpperCase();
       const s0 = window.webrtcManager?.remoteStreams?.get(firstPeer.id) || null;
-      attachRemoteCallVideoIfReal(s0);
+      attachRemoteCallVideoIfReal(s0, firstPeer.id);
     }
   }
 
@@ -634,7 +677,7 @@ function renderGroupCallVideoCards() {
     const vid = card.querySelector('.call-card-video');
     const ph = card.querySelector('.call-avatar-placeholder');
     const stream = window.webrtcManager?.remoteStreams?.get(peer.id) || null;
-    getPeerForCallCard(vid, ph, stream);
+    getPeerForCallCard(vid, ph, stream, peer.id);
   });
 }
 
@@ -805,39 +848,11 @@ function removePeerFromGroupCall(peerId, notifyPeer = false) {
 }
 window.removePeerFromGroupCall = removePeerFromGroupCall;
 
-function attachRemoteCallVideoIfReal(stream) {
+function attachRemoteCallVideoIfReal(stream, peerId = null) {
   const remoteVideo = document.getElementById('remoteCallVideo');
   const remotePlaceholder = document.getElementById('remoteCallPlaceholder');
-  if (!remoteVideo || !remotePlaceholder) return;
-
-  if (!stream) {
-    remoteVideo.srcObject = null;
-    remoteVideo.classList.remove('active');
-    remotePlaceholder.style.display = 'flex';
-    return;
-  }
-
-  // Keep clean avatar placeholder visible unless stream carries real camera video (> 200px wide)
-  remoteVideo.srcObject = stream;
-  remoteVideo.classList.remove('active');
-  remotePlaceholder.style.display = 'flex';
-
-  const checkDimensions = () => {
-    if (remoteVideo.videoWidth > 200) {
-      remoteVideo.play().catch(e => console.warn(e));
-      remoteVideo.classList.add('active');
-      remotePlaceholder.style.display = 'none';
-    } else {
-      remoteVideo.classList.remove('active');
-      remotePlaceholder.style.display = 'flex';
-    }
-  };
-
-  remoteVideo.onloadedmetadata = checkDimensions;
-  remoteVideo.onresize = checkDimensions;
-  if (remoteVideo.readyState >= 1) {
-    checkDimensions();
-  }
+  const resolvedPeerId = peerId || (window.activeCallPeers && window.activeCallPeers.keys().next().value) || (window.activeProximityPeer && window.activeProximityPeer.id) || null;
+  getPeerForCallCard(remoteVideo, remotePlaceholder, stream, resolvedPeerId);
 }
 
 function hideProximityVideoBar(notifyPeer = true) {
@@ -2810,17 +2825,28 @@ async function toggleCamera() {
       updateCameraUI(true);
     } catch (err) {
       console.warn('Camera access denied or unavailable:', err);
-      // Fallback simulate
-      isCameraOn = true;
-      updateCameraUI(true);
-      webcamVideo.classList.remove('hidden');
-      cameraOffState.classList.add('hidden');
+      stopCameraStream();
+      isCameraOn = false;
+      updateCameraUI(false);
+      if (typeof showRoomBannerToast === 'function') {
+        showRoomBannerToast('📷 Không mở được camera (chưa cấp quyền hoặc camera đang được tab/ứng dụng khác sử dụng).');
+      }
+      return;
     }
   }
 
-  // Update WebRTC Manager local stream
+  // Update WebRTC Manager local stream & notify peers in real time
   if (window.webrtcManager) {
-    window.webrtcManager.setLocalStream(mediaStream);
+    window.webrtcManager.setLocalStream(isCameraOn ? mediaStream : null);
+  }
+  if (socket && socket.connected) {
+    socket.emit('CAMERA_STATE', { isCameraOn: !!isCameraOn });
+  }
+  if (typeof renderGroupCallVideoCards === 'function') {
+    renderGroupCallVideoCards();
+  }
+  if (typeof window.syncWhiteboardParticipantsUI === 'function') {
+    window.syncWhiteboardParticipantsUI();
   }
   const meetingLocalVideo = document.getElementById('meetingLocalVideo');
   const localPlaceholder = document.getElementById('localTilePlaceholder');
@@ -2855,6 +2881,9 @@ function stopCameraStream() {
   }
   if (window.webrtcManager) {
     window.webrtcManager.setLocalStream(null);
+  }
+  if (socket && socket.connected) {
+    socket.emit('CAMERA_STATE', { isCameraOn: false });
   }
   const localCallVideo = document.getElementById('localCallVideo');
   const localCallPlaceholder = document.getElementById('localCallPlaceholder');
@@ -3180,8 +3209,20 @@ function handleJoin() {
       sprite: selectedCharacter ? selectedCharacter.sprite : 'assets/characters/char_1_dev.png',
       x: spawnX,
       y: spawnY,
-      direction: spawnDir
+      direction: spawnDir,
+      isCameraOn: !!isCameraOn
     });
+    if (isCameraOn && mediaStream) {
+      const officeVideo = document.getElementById('officeWebcamStream');
+      if (officeVideo) {
+        officeVideo.srcObject = mediaStream;
+        officeVideo.play().catch(() => {});
+      }
+      if (window.webrtcManager) {
+        window.webrtcManager.setLocalStream(mediaStream);
+      }
+      socket.emit('CAMERA_STATE', { isCameraOn: true });
+    }
   }
 
   setupNetworkMovementSync();
@@ -3363,7 +3404,7 @@ function syncWhiteboardParticipantsUI() {
     const ph = card.querySelector('.wb-participant-placeholder');
     const stream = window.webrtcManager?.remoteStreams?.get(p.id) || null;
     if (stream && vid && ph) {
-      getPeerForCallCard(vid, ph, stream);
+      getPeerForCallCard(vid, ph, stream, p.id);
     }
     rail.appendChild(card);
   });

@@ -5236,16 +5236,20 @@ html, body {
   background: #0d0d0e;
   position: absolute;
   inset: 0;
-  display: none;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .call-card-video.active {
-  display: block;
+  opacity: 1;
+  z-index: 3;
 }
 
 .call-avatar-placeholder {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;

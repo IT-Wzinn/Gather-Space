@@ -142,6 +142,21 @@ function registerSignalHandlers(io, socket, worldState) {
       });
     });
   });
+
+  /**
+   * CAMERA_STATE: Đồng bộ trạng thái bật/tắt camera để các peer cập nhật khung video và bubble trên đầu nhân vật
+   */
+  socket.on('CAMERA_STATE', (payload) => {
+    const isCameraOn = !!(payload && payload.isCameraOn);
+    const user = worldState ? worldState.getPlayer(socket.id) : null;
+    if (user) {
+      user.isCameraOn = isCameraOn;
+    }
+    socket.broadcast.emit('CAMERA_STATE', {
+      senderPeerId: socket.id,
+      isCameraOn
+    });
+  });
 }
 
 module.exports = registerSignalHandlers;
