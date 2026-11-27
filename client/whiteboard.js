@@ -48,6 +48,8 @@ class WhiteboardManager {
     this.eraserCursor = null; // { pageIndex, x, y }
     this.remoteCursors = new Map(); // senderId -> { senderId, userName, color, pageIndex, x, y, updatedAt }
     this.remoteLiveItems = new Map(); // senderId -> { pageIndex, item }
+    this.imageCache = new Map(); // src -> HTMLImageElement
+    this.lastPointerPos = null; // { pageIndex, x, y }
     this.cursorsLayer = null;
     this.localUserName = 'Bạn';
     this.lastCursorEmitTime = 0;
@@ -109,6 +111,9 @@ class WhiteboardManager {
     if (typeof window.syncWhiteboardParticipantsUI === 'function') {
       window.syncWhiteboardParticipantsUI();
     }
+    if (typeof window.syncLobbyMusicState === 'function') {
+      window.syncLobbyMusicState();
+    }
 
     const dockWbBtn = document.getElementById('dockWhiteboardBtn');
     if (dockWbBtn) dockWbBtn.classList.add('active');
@@ -144,6 +149,9 @@ class WhiteboardManager {
     if (this.modal) this.modal.classList.add('hidden');
     const dockWbBtn = document.getElementById('dockWhiteboardBtn');
     if (dockWbBtn) dockWbBtn.classList.remove('active');
+    if (typeof window.syncLobbyMusicState === 'function') {
+      window.syncLobbyMusicState();
+    }
   }
 
   resizeCanvases() {
@@ -546,9 +554,33 @@ class WhiteboardManager {
       });
     } else if (item.kind === 'shape') {
       this.drawVectorShape(ctx, item);
+    } else if (item.kind === 'image') {
+      this.drawImageItem(ctx, item);
     }
 
     ctx.restore();
+  }
+
+  drawImageItem(ctx, item) {
+    if (!item || !item.src) return;
+    let img = this.imageCache.get(item.src);
+    if (!img) {
+      img = new Image();
+      img.onload = () => this.renderAll();
+      img.src = item.src;
+      this.imageCache.set(item.src, img);
+    }
+    const w = Math.max(12, item.width || 160);
+    const h = Math.max(12, item.height || 120);
+    if (img.complete && img.naturalWidth > 0) {
+      ctx.drawImage(img, item.x, item.y, w, h);
+    } else {
+      ctx.save();
+      ctx.strokeStyle = '#94a3b8';
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(item.x, item.y, w, h);
+      ctx.restore();
+    }
   }
 
   drawVectorShape(ctx, item) {
@@ -676,6 +708,14 @@ class WhiteboardManager {
         maxY: item.y + lines.length * (fontSize * 1.3)
       };
     }
+    if (item.kind === 'image') {
+      return {
+        minX: item.x,
+        minY: item.y,
+        maxX: item.x + (item.width || 0),
+        maxY: item.y + (item.height || 0)
+      };
+    }
     return {
       minX: Math.min(item.x1, item.x2),
       minY: Math.min(item.y1, item.y2),
@@ -687,7 +727,7 @@ class WhiteboardManager {
   translateItem(item, dx, dy) {
     if (item.kind === 'path') {
       item.points.forEach(p => { p.x += dx; p.y += dy; });
-    } else if (item.kind === 'text') {
+    } else if (item.kind === 'text' || item.kind === 'image') {
       item.x += dx;
       item.y += dy;
     } else if (item.kind === 'shape') {
@@ -856,6 +896,47 @@ class WhiteboardManager {
         page.bgStyle = this.bgStylesOrder[(curIdx + 1) % this.bgStylesOrder.length];
         this.renderAll();
         this.emitSyncPage(this.activePageIndex);
+      });
+    }
+
+    const imageBtn = document.getElementById('wbImageBtn');
+    const imageFileInput = document.getElementById('wbImageFileInput');
+    if (imageBtn && imageFileInput) {
+      imageBtn.addEventListener('click', () => imageFileInput.click());
+      imageFileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) this.insertImageFile(file);
+        imageFileInput.value = '';
+      });
+    }
+
+    window.addEventListener('paste', (e) => {
+      if (!this.modal || this.modal.classList.contains('hidden')) return;
+      const activeId = document.activeElement ? document.activeElement.id : '';
+      if (activeId === 'wbInlineTextInput') return;
+      const items = e.clipboardData && e.clipboardData.items ? Array.from(e.clipboardData.items) : [];
+      const imgEntry = items.find(it => it.type && it.type.startsWith('image/'));
+      if (!imgEntry) return;
+      const file = imgEntry.getAsFile();
+      if (file) {
+        e.preventDefault();
+        this.insertImageFile(file);
+      }
+    });
+
+    if (this.container) {
+      this.container.addEventListener('dragover', (e) => {
+        if (this.modal && !this.modal.classList.contains('hidden')) {
+          e.preventDefault();
+        }
+      });
+      this.container.addEventListener('drop', (e) => {
+        if (!this.modal || this.modal.classList.contains('hidden')) return;
+        const file = e.dataTransfer && e.dataTransfer.files && Array.from(e.dataTransfer.files).find(f => f.type && f.type.startsWith('image/'));
+        if (file) {
+          e.preventDefault();
+          this.insertImageFile(file);
+        }
       });
     }
 
@@ -1037,6 +1118,7 @@ class WhiteboardManager {
         y: Math.round((pt.clientY - rect.top) * 10) / 10
       };
 
+      this.lastPointerPos = { pageIndex: pageIdx, x: coords.x, y: coords.y };
       this.emitCursor(pageIdx, coords.x, coords.y, true);
 
       if (this.activeTool === 'eraser') {
@@ -1575,6 +1657,82 @@ class WhiteboardManager {
         node.remove();
       }
     });
+  }
+
+  insertImageFile(file) {
+    if (!file || !file.type || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        this.insertImageDataUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  insertImageDataUrl(rawDataUrl) {
+    if (!rawDataUrl) return;
+    const img = new Image();
+    img.onload = () => {
+      const natW = img.naturalWidth || 240;
+      const natH = img.naturalHeight || 180;
+
+      // Downscale oversized clipboard screenshots so Socket.IO sync stays fast and lightweight
+      const maxEncodeDim = 760;
+      const encodeScale = Math.min(1, maxEncodeDim / Math.max(natW, natH));
+      const ew = Math.max(1, Math.round(natW * encodeScale));
+      const eh = Math.max(1, Math.round(natH * encodeScale));
+      const off = document.createElement('canvas');
+      off.width = ew;
+      off.height = eh;
+      const octx = off.getContext('2d');
+      octx.drawImage(img, 0, 0, ew, eh);
+      const isPng = rawDataUrl.startsWith('data:image/png');
+      const encodedSrc = isPng && ew * eh <= 360000
+        ? off.toDataURL('image/png')
+        : off.toDataURL('image/jpeg', 0.84);
+
+      const maxDisplayW = Math.min(380, Math.round((this.sheetWidth || 960) * 0.52));
+      const maxDisplayH = Math.min(300, Math.round((this.sheetHeight || 580) * 0.56));
+      const dispScale = Math.min(1, maxDisplayW / natW, maxDisplayH / natH);
+      const dispW = Math.max(48, Math.round(natW * dispScale));
+      const dispH = Math.max(48, Math.round(natH * dispScale));
+
+      const pageIdx = (this.lastPointerPos && this.lastPointerPos.pageIndex >= 0 && this.lastPointerPos.pageIndex < this.pages.length)
+        ? this.lastPointerPos.pageIndex
+        : this.activePageIndex;
+      const sheetW = this.sheetWidth || 960;
+      const sheetH = this.sheetHeight || 580;
+      const anchorX = (this.lastPointerPos && this.lastPointerPos.pageIndex === pageIdx)
+        ? this.lastPointerPos.x - dispW / 2
+        : (sheetW - dispW) / 2;
+      const anchorY = (this.lastPointerPos && this.lastPointerPos.pageIndex === pageIdx)
+        ? this.lastPointerPos.y - dispH / 2
+        : (sheetH - dispH) / 2;
+
+      const x = Math.round(Math.max(16, Math.min(sheetW - dispW - 16, anchorX)));
+      const y = Math.round(Math.max(16, Math.min(sheetH - dispH - 16, anchorY)));
+
+      const cached = new Image();
+      cached.src = encodedSrc;
+      this.imageCache.set(encodedSrc, cached);
+
+      this.pushUndoSnapshot(pageIdx);
+      const item = {
+        id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        kind: 'image',
+        src: encodedSrc,
+        x,
+        y,
+        width: dispW,
+        height: dispH
+      };
+      this.commitNewItem(pageIdx, item);
+      this.selectedIds = new Set([item.id]);
+      this.selectTool('select');
+      this.renderAll();
+    };
+    img.src = rawDataUrl;
   }
 }
 

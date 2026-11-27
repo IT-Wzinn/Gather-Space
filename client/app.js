@@ -750,6 +750,9 @@ function showProximityVideoBar(peer, notifyPeer = true) {
   if (typeof window.syncWhiteboardParticipantsUI === 'function') {
     window.syncWhiteboardParticipantsUI();
   }
+  if (typeof window.syncLobbyMusicState === 'function') {
+    window.syncLobbyMusicState();
+  }
 
   if (notifyPeer && wasNewPeer && peer.id && socket && socket.connected) {
     socket.emit('PROXIMITY_START', { targetPeerId: peer.id });
@@ -798,6 +801,7 @@ function removePeerFromGroupCall(peerId, notifyPeer = false) {
   updateSidebarConversationsUI();
   if (typeof window.syncChatMiniCallDock === 'function') window.syncChatMiniCallDock();
   if (typeof window.syncWhiteboardParticipantsUI === 'function') window.syncWhiteboardParticipantsUI();
+  if (typeof window.syncLobbyMusicState === 'function') window.syncLobbyMusicState();
 }
 window.removePeerFromGroupCall = removePeerFromGroupCall;
 
@@ -899,6 +903,9 @@ function hideProximityVideoBar(notifyPeer = true) {
   }
   if (typeof window.syncWhiteboardParticipantsUI === 'function') {
     window.syncWhiteboardParticipantsUI();
+  }
+  if (typeof window.syncLobbyMusicState === 'function') {
+    window.syncLobbyMusicState();
   }
 
   // Restore left office panel to its pre-call state when call ends
@@ -1100,6 +1107,9 @@ function setupSpatialRoomDetection() {
     }
     updateOnlineRoster();
     updateSidebarConversationsUI();
+    if (typeof window.syncLobbyMusicState === 'function') {
+      window.syncLobbyMusicState();
+    }
   };
 }
 
@@ -1945,6 +1955,9 @@ function switchView(viewName) {
   } else {
     if (prejoinView) prejoinView.classList.remove('hidden');
   }
+  if (typeof window.syncLobbyMusicState === 'function') {
+    window.syncLobbyMusicState();
+  }
 }
 
 function updateUserNames(name) {
@@ -2304,6 +2317,9 @@ function setProfileChatExpanded(expanded) {
 
   if (expanded) {
     renderProfileChatMessages();
+  }
+  if (typeof window.syncLobbyMusicState === 'function') {
+    window.syncLobbyMusicState();
   }
 }
 window.setProfileChatExpanded = setProfileChatExpanded;
@@ -3811,6 +3827,81 @@ function sendChatMessage() {
   const sendBtn = document.getElementById('chatSendSubmitBtn');
   if (sendBtn) sendBtn.classList.remove('has-text');
 }
+
+// ========================================================
+// Soft Lobby Background Music (Plays only in open lobby)
+// ========================================================
+const LOBBY_BGM_VOLUME = 0.08;
+let lobbyBgmAudio = null;
+
+function ensureLobbyBgmAudio() {
+  if (!lobbyBgmAudio) {
+    lobbyBgmAudio = new Audio('assets/audio/lobby_bgm.mp3');
+    lobbyBgmAudio.loop = true;
+    lobbyBgmAudio.volume = LOBBY_BGM_VOLUME;
+    window.lobbyBgmAudio = lobbyBgmAudio;
+  }
+  return lobbyBgmAudio;
+}
+
+function shouldPlayLobbyMusic() {
+  if (document.visibilityState === 'hidden') return false;
+  if (!officeView || officeView.classList.contains('hidden')) return false;
+
+  const inCall = (window.activeCallPeers && window.activeCallPeers.size > 0) || !!window.activeProximityPeer;
+  if (inCall) return false;
+
+  const wbModal = document.getElementById('whiteboardModal');
+  if (wbModal && !wbModal.classList.contains('hidden')) return false;
+
+  const profileCard = document.getElementById('userProfileCard');
+  if (profileCard && profileCard.classList.contains('chat-expanded')) return false;
+
+  const activeEl = document.activeElement;
+  if (activeEl && activeEl.id === 'profileMsgInput') return false;
+
+  const me = window.mapEngineInstance;
+  const room = me && typeof me.getRoomAtPosition === 'function'
+    ? (me.getRoomAtPosition(me.player.x, me.player.y) || me.currentRoom)
+    : (me && me.currentRoom);
+  if (room && room.isMeetingRoom) return false;
+
+  return true;
+}
+
+function syncLobbyMusicState() {
+  const audio = ensureLobbyBgmAudio();
+  if (!audio) return;
+
+  if (shouldPlayLobbyMusic()) {
+    audio.volume = LOBBY_BGM_VOLUME;
+    if (audio.paused) {
+      const p = audio.play();
+      if (p !== undefined) {
+        p.catch(() => {});
+      }
+    }
+  } else if (!audio.paused) {
+    audio.pause();
+  }
+}
+
+window.syncLobbyMusicState = syncLobbyMusicState;
+window.shouldPlayLobbyMusic = shouldPlayLobbyMusic;
+
+document.addEventListener('visibilitychange', () => {
+  syncLobbyMusicState();
+});
+window.addEventListener('pointerdown', () => {
+  if (lobbyBgmAudio && lobbyBgmAudio.paused && shouldPlayLobbyMusic()) {
+    syncLobbyMusicState();
+  }
+});
+window.addEventListener('keydown', () => {
+  if (lobbyBgmAudio && lobbyBgmAudio.paused && shouldPlayLobbyMusic()) {
+    syncLobbyMusicState();
+  }
+});
 
 function renderReceivedChatMessage(msgData) {
   const chId = msgData.channel || 'general';

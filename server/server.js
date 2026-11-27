@@ -24,6 +24,7 @@ const io = new Server(server, {
     origin: '*',
     methods: ['GET', 'POST']
   },
+  maxHttpBufferSize: 5e6, // Support pasted compressed whiteboard images cleanly
   pingInterval: 5000, // 5s Heartbeat Ping
   pingTimeout: 5000    // 5s Heartbeat Timeout (Silent Disconnect Detection)
 });
