@@ -69,9 +69,9 @@ class MapEngine {
       y: 2208, // 69 * 32
       width: 32,
       height: 52,
-      speed: 2.35, // Current movement speed
-      normalSpeed: 2.35, // Tuned for comfortable, relaxed walking pace on 32px grid
-      gotoSpeed: 5.2, // Smooth moderate sprint (~2.2x) when double-clicking (ground, seat, or player) or clicking "Go to"
+      speed: 2.6, // Current movement speed (px per 60Hz frame)
+      normalSpeed: 2.6, // Comfortable walking pace on 32px grid
+      gotoSpeed: 11.5, // Fast sprint (~4.4x) on double-click, Shift+click, long click, minimap click, or "Go to"
       direction: 'up', // 'down', 'left', 'right', 'up'
       isMoving: false,
       isSitting: false,
@@ -83,6 +83,7 @@ class MapEngine {
     this.pendingSeat = null;
     this.isAutoNavigatingToPlayer = false;
     this.isFastMoving = false;
+    this.lastFastNavTimestamp = 0;
     this.lastGroundClickTime = 0;
     this.lastGroundClickPos = { x: -9999, y: -9999 };
     this.lastGroundClickScreenPos = { x: -9999, y: -9999 };
@@ -467,7 +468,7 @@ class MapEngine {
 
       if (this.isDragging) {
         const moveDist = Math.hypot(e.clientX - this.mouseDownPos.x, e.clientY - this.mouseDownPos.y);
-        if (moveDist > 5) {
+        if (moveDist > 10) {
           this.hasDragged = true;
           if (!this.player.isSitting) {
             container.style.cursor = 'grabbing';
@@ -571,16 +572,18 @@ class MapEngine {
             } else {
               // Check if user clicked on an available chair / sofa / bench
               const clickNow = Date.now();
-              const withinDoubleTime = (clickNow - (this.lastGroundClickTime || 0)) < 420;
+              const withinDoubleTime = (clickNow - (this.lastGroundClickTime || 0)) < 480;
               const withinScreenRadius = Math.hypot(
                 e.clientX - (this.lastGroundClickScreenPos?.x ?? -9999),
                 e.clientY - (this.lastGroundClickScreenPos?.y ?? -9999)
-              ) < 28;
+              ) < 36;
               const withinWorldRadius = Math.hypot(
                 worldX - (this.lastGroundClickPos?.x ?? -9999),
                 worldY - (this.lastGroundClickPos?.y ?? -9999)
-              ) < 48;
+              ) < 56;
               const isGroundDoubleClick = (e.detail >= 2) || (withinDoubleTime && (withinScreenRadius || withinWorldRadius));
+              const clickDistFromPlayer = Math.hypot(worldX - this.player.x, worldY - this.player.y);
+              const isFastGroundClick = isGroundDoubleClick || !!e.shiftKey || clickDistFromPlayer > 380;
               this.lastGroundClickTime = clickNow;
               this.lastGroundClickPos = { x: worldX, y: worldY };
               this.lastGroundClickScreenPos = { x: e.clientX, y: e.clientY };
@@ -610,7 +613,8 @@ class MapEngine {
                   this.setSelectedPlayer(null);
                   this.navTargetPlayer = null;
                   this.pendingSeat = clickedSeat;
-                  this.setTargetDestination(clickedSeat.x, clickedSeat.y, false, isGroundDoubleClick);
+                  if (isFastGroundClick) this.lastFastNavTimestamp = clickNow;
+                  this.setTargetDestination(clickedSeat.x, clickedSeat.y, false, isFastGroundClick);
                 }
                 return;
               }
@@ -626,7 +630,8 @@ class MapEngine {
                   this.pendingSeat = null;
                   this.setSelectedPlayer(null);
                   this.navTargetPlayer = null;
-                  this.setTargetDestination(worldX, worldY, false, isGroundDoubleClick);
+                  if (isFastGroundClick) this.lastFastNavTimestamp = Date.now();
+                  this.setTargetDestination(worldX, worldY, false, isFastGroundClick);
                 });
                 return;
               }
@@ -635,7 +640,8 @@ class MapEngine {
               this.pendingSeat = null;
               this.setSelectedPlayer(null);
               this.navTargetPlayer = null;
-              this.setTargetDestination(worldX, worldY, false, isGroundDoubleClick);
+              if (isFastGroundClick) this.lastFastNavTimestamp = clickNow;
+              this.setTargetDestination(worldX, worldY, false, isFastGroundClick);
             }
           }
         }
@@ -653,6 +659,9 @@ class MapEngine {
 
       const clickedRemotePlayer = this.findPlayerAt(worldX, worldY);
       if (clickedRemotePlayer) {
+        if (this.isAutoNavigatingToPlayer && this.navTargetPlayer && this.navTargetPlayer.id === clickedRemotePlayer.id && (Date.now() - (this.lastFastNavTimestamp || 0) < 250)) {
+          return;
+        }
         if (this.shouldConfirmLeaveBeforeMove(clickedRemotePlayer.x, clickedRemotePlayer.y, clickedRemotePlayer)) {
           window.showLeaveConversationModal(() => {
             if (typeof window.hideProximityVideoBar === 'function') {
@@ -679,6 +688,10 @@ class MapEngine {
           window.showRoomBannerToast(`📍 Đang đi tới chỗ ${clickedRemotePlayer.name || 'Đồng nghiệp'}...`);
         }
       } else {
+        // Avoid redundant path reset if mouseup #2 already started fast click navigation
+        if (this.isFastMoving && (Date.now() - (this.lastFastNavTimestamp || 0) < 250)) {
+          return;
+        }
         // Double click on seat or ground -> Sprint smoothly at fast double-click speed!
         const hasActiveDblCall = !!(window.activeCallPeers && window.activeCallPeers.size > 0) || !!window.activeProximityPeer;
         const ownSeatDblClicked = (this.player.isSitting && !hasActiveDblCall && this.seatingSystem && typeof this.seatingSystem.isPointOnSeatFurniture === 'function')
@@ -886,14 +899,18 @@ class MapEngine {
             if (typeof window.hideProximityVideoBar === 'function') {
               window.hideProximityVideoBar();
             }
+            if (this.player.isSitting) this.standUp(false);
+            this.pendingSeat = null;
             this.setSelectedPlayer(null);
-            this.setTargetDestination(targetX, targetY, false);
+            this.setTargetDestination(targetX, targetY, false, true);
           });
           return;
         }
 
+        if (this.player.isSitting) this.standUp(false);
+        this.pendingSeat = null;
         this.setSelectedPlayer(null);
-        this.setTargetDestination(targetX, targetY, false);
+        this.setTargetDestination(targetX, targetY, false, true);
       });
     }
   }
@@ -1506,6 +1523,21 @@ class MapEngine {
     for (const c of candidates) {
       const candX = Math.max(80, Math.min(this.mapWidth - 80, targetX + c.dx));
       const candY = Math.max(80, Math.min(this.mapHeight - 80, targetY + c.dy));
+      const tileCenterX = Math.floor(candX / 32) * 32 + 16;
+      const tileCenterY = Math.floor(candY / 32) * 32 + 16;
+      if (!this.checkCollision(candX, candY) && !this.checkCollision(tileCenterX, tileCenterY)) {
+        return {
+          x: candX,
+          y: candY,
+          tileX: Math.floor(candX / 32) * 32,
+          tileY: Math.floor(candY / 32) * 32
+        };
+      }
+    }
+
+    for (const c of candidates) {
+      const candX = Math.max(80, Math.min(this.mapWidth - 80, targetX + c.dx));
+      const candY = Math.max(80, Math.min(this.mapHeight - 80, targetY + c.dy));
       if (!this.checkCollision(candX, candY)) {
         return {
           x: candX,
@@ -1625,7 +1657,9 @@ class MapEngine {
 
     let found = false;
     let iterations = 0;
-    const maxIter = 8000;
+    const maxIter = 15000;
+    let closestIdx = -1;
+    let closestDist = Math.abs(gTileX - sTileX) + Math.abs(gTileY - sTileY);
 
     while (head < queue.length && iterations < maxIter) {
       iterations++;
@@ -1636,6 +1670,13 @@ class MapEngine {
       }
       const cx = curr % cols;
       const cy = Math.floor(curr / cols);
+      if (curr !== startIdx) {
+        const dGoal = Math.abs(gTileX - cx) + Math.abs(gTileY - cy);
+        if (dGoal < closestDist) {
+          closestDist = dGoal;
+          closestIdx = curr;
+        }
+      }
 
       for (const d of dirs) {
         const nx = cx + d.dx;
@@ -1655,17 +1696,21 @@ class MapEngine {
       }
     }
 
-    if (!found) return null;
+    const endIdx = found ? goalIdx : closestIdx;
+    if (endIdx === -1 || endIdx === startIdx) return null;
 
     // Reconstruct tile path
     const rawTiles = [];
-    let curr = goalIdx;
+    let curr = endIdx;
     while (curr !== -1) {
       rawTiles.unshift({ x: (curr % cols) * 32 + 16, y: Math.floor(curr / cols) * 32 + 16 });
       curr = parent[curr];
     }
 
-    if (rawTiles.length <= 1) return [{ x: goalX, y: goalY }];
+    const resolvedGoalX = (found && !this.checkCollision(goalX, goalY)) ? goalX : rawTiles[rawTiles.length - 1].x;
+    const resolvedGoalY = (found && !this.checkCollision(goalX, goalY)) ? goalY : rawTiles[rawTiles.length - 1].y;
+
+    if (rawTiles.length <= 1) return [{ x: resolvedGoalX, y: resolvedGoalY }];
 
     // Compress collinear points into orthogonal corners
     const waypoints = [];
@@ -1681,7 +1726,7 @@ class MapEngine {
         waypoints.push({ x: cur.x, y: cur.y });
       }
     }
-    waypoints.push({ x: goalX, y: goalY });
+    waypoints.push({ x: resolvedGoalX, y: resolvedGoalY });
     return waypoints;
   }
 
@@ -1711,8 +1756,8 @@ class MapEngine {
     }
 
     this.targetPos = {
-      x: clampedX,
-      y: clampedY,
+      x: this.navWaypoints[this.navWaypoints.length - 1].x,
+      y: this.navWaypoints[this.navWaypoints.length - 1].y,
       tileX: tileX,
       tileY: tileY
     };
@@ -1721,34 +1766,38 @@ class MapEngine {
 
   navigateToPlayer(targetPlayer) {
     if (!targetPlayer) return;
+    // Resolve freshest live coordinates if remotePlayers already updated position
+    const livePlayer = (targetPlayer.id && this.remotePlayers && this.remotePlayers.get(targetPlayer.id)) || targetPlayer;
     if (this.player.isSitting) this.standUp(false);
     this.pendingSeat = null;
-    if (targetPlayer.isCallLocked && targetPlayer.callLockedWith && (!window.socket || targetPlayer.callLockedWith !== window.socket.id)) {
+    if (livePlayer.isCallLocked && livePlayer.callLockedWith && (!window.socket || livePlayer.callLockedWith !== window.socket.id)) {
       if (typeof window.showRoomBannerToast === 'function') {
-        window.showRoomBannerToast(`🔒 Cuộc trò chuyện của ${targetPlayer.name || 'người này'} đang được khóa riêng tư.`);
+        window.showRoomBannerToast(`🔒 Cuộc trò chuyện của ${livePlayer.name || 'người này'} đang được khóa riêng tư.`);
       }
       return;
     }
     window.dismissedProximityPeerId = null;
-    if (window.dismissedProximityPeerIds && targetPlayer.id) {
-      window.dismissedProximityPeerIds.delete(targetPlayer.id);
+    if (window.dismissedProximityPeerIds && livePlayer.id) {
+      window.dismissedProximityPeerIds.delete(livePlayer.id);
     }
-    this.setSelectedPlayer(targetPlayer);
-    this.navTargetPlayer = targetPlayer;
-    const pos = this.getStandingPositionNear(targetPlayer.x, targetPlayer.y);
+    this.lastFastNavTimestamp = Date.now();
+    this.setSelectedPlayer(livePlayer);
+    this.navTargetPlayer = livePlayer;
+    const pos = this.getStandingPositionNear(livePlayer.x, livePlayer.y);
     const distToDest = Math.hypot(this.player.x - pos.x, this.player.y - pos.y);
     if (distToDest <= 4) {
       this.targetPos = null;
       this.navWaypoints = [];
       this.navActiveAxis = null;
       this.isAutoNavigatingToPlayer = false;
+      this.isFastMoving = false;
       this.player.speed = this.player.normalSpeed;
       if (typeof window.showProximityVideoBar === 'function') {
-        window.showProximityVideoBar(targetPlayer);
+        window.showProximityVideoBar(livePlayer);
       }
       return;
     }
-    this.setTargetDestination(pos.x, pos.y, true);
+    this.setTargetDestination(pos.x, pos.y, true, true);
   }
 
   getRoomAtPosition(worldX, worldY) {
@@ -1966,6 +2015,10 @@ class MapEngine {
   }
 
   update(dt) {
+    // Normalize frame speed relative to 60Hz (clamped against tab switches)
+    const dtClamped = Math.min(Math.max(dt || 16.6667, 4), 50);
+    const frameScale = dtClamped / 16.6667;
+
     // Update player name from global input
     const nameInput = document.getElementById('userNameInput');
     if (nameInput && nameInput.value.trim()) {
@@ -2027,8 +2080,8 @@ class MapEngine {
       this.player.isMoving = (dx !== 0 || dy !== 0);
 
       if (this.player.isMoving) {
-        const moveX = dx * this.player.speed;
-        const moveY = dy * this.player.speed;
+        const moveX = dx * this.player.speed * frameScale;
+        const moveY = dy * this.player.speed * frameScale;
 
         // Move strictly along 1 axis with stepped collision check
         if (moveX !== 0) this.moveAlongAxisStepped('x', moveX);
@@ -2038,6 +2091,7 @@ class MapEngine {
       // Orthogonal Click-to-Move / Waypoint navigation (vuông góc theo ô)
       const currentSpeed = (this.isAutoNavigatingToPlayer || this.isFastMoving) ? this.player.gotoSpeed : this.player.normalSpeed;
       this.player.speed = currentSpeed;
+      const stepPerFrame = currentSpeed * frameScale;
 
       if (!this.navWaypoints || this.navWaypoints.length === 0) {
         this.navWaypoints = this.buildOrthogonalPath(this.player.x, this.player.y, this.targetPos.x, this.targetPos.y);
@@ -2082,7 +2136,7 @@ class MapEngine {
           if (this.navActiveAxis === 'x') {
             const curDiffX = wp.x - this.player.x;
             if (Math.abs(curDiffX) > 0.5) {
-              const stepX = Math.sign(curDiffX) * Math.min(Math.abs(curDiffX), this.player.speed);
+              const stepX = Math.sign(curDiffX) * Math.min(Math.abs(curDiffX), stepPerFrame);
               if (this.moveAlongAxisStepped('x', stepX)) {
                 this.player.direction = stepX > 0 ? 'right' : 'left';
                 moved = true;
@@ -2107,7 +2161,7 @@ class MapEngine {
           } else if (this.navActiveAxis === 'y') {
             const curDiffY = wp.y - this.player.y;
             if (Math.abs(curDiffY) > 0.5) {
-              const stepY = Math.sign(curDiffY) * Math.min(Math.abs(curDiffY), this.player.speed);
+              const stepY = Math.sign(curDiffY) * Math.min(Math.abs(curDiffY), stepPerFrame);
               if (this.moveAlongAxisStepped('y', stepY)) {
                 this.player.direction = stepY > 0 ? 'down' : 'up';
                 moved = true;
@@ -2131,12 +2185,12 @@ class MapEngine {
             }
           }
 
-          if (!moved && this.player.isMoving) {
-            // Collision recovery: try the alternate axis only if it actually moves closer without ping-ponging
+          if (!moved) {
+            // Collision recovery: try the alternate axis even on frame 1 so doorway alignment succeeds immediately
             const altAxis = (this.navActiveAxis === 'x') ? 'y' : 'x';
             const altDiff = (altAxis === 'x') ? (wp.x - this.player.x) : (wp.y - this.player.y);
-            if (Math.abs(altDiff) > 2.0) {
-              const stepAlt = Math.sign(altDiff) * Math.min(Math.abs(altDiff), this.player.speed);
+            if (Math.abs(altDiff) > 0.5) {
+              const stepAlt = Math.sign(altDiff) * Math.min(Math.abs(altDiff), stepPerFrame);
               if (this.moveAlongAxisStepped(altAxis, stepAlt)) {
                 this.player.direction = altAxis === 'x'
                   ? (stepAlt > 0 ? 'right' : 'left')
@@ -2152,9 +2206,11 @@ class MapEngine {
             const altPath = !this._reroutedCurrentTarget
               ? this.findTilePath(this.player.x, this.player.y, this.targetPos.x, this.targetPos.y)
               : null;
-            if (altPath && altPath.length > 0 && !this.checkCollision(this.targetPos.x, this.targetPos.y)) {
+            if (altPath && altPath.length > 0) {
               this._reroutedCurrentTarget = true;
               this.navWaypoints = altPath;
+              this.targetPos.x = altPath[altPath.length - 1].x;
+              this.targetPos.y = altPath[altPath.length - 1].y;
               this.navActiveAxis = null;
             } else {
               this._reroutedCurrentTarget = false;
@@ -2183,7 +2239,7 @@ class MapEngine {
       const sprinting = !!(this.isAutoNavigatingToPlayer || this.isFastMoving);
       // Cycle animation frames (0, 1, 2, 3)
       this.player.animTimer += dt;
-      const animInterval = sprinting ? 105 : 175;
+      const animInterval = sprinting ? 85 : 170;
       if (this.player.animTimer > animInterval) {
         this.player.frameIndex = (this.player.frameIndex + 1) % 4;
         this.player.animTimer = 0;
@@ -2191,7 +2247,7 @@ class MapEngine {
 
       // Footstep movement dust particles
       this.player.dustTimer = (this.player.dustTimer || 0) + dt;
-      const dustInterval = sprinting ? 85 : 125;
+      const dustInterval = sprinting ? 65 : 125;
       if (this.player.dustTimer > dustInterval) {
         this.player.dustTimer = 0;
         this.emitMovementDust(this.player.x, this.player.y, this.player.direction, sprinting);
