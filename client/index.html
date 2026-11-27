@@ -74,7 +74,8 @@
           <form id="joinForm" onsubmit="event.preventDefault(); handleJoin();">
             <div class="input-group">
               <label for="userNameInput" class="input-field-label">Tên hiển thị của bạn</label>
-              <input type="text" id="userNameInput" class="name-input" placeholder="What's your name?" autocomplete="name" spellcheck="false" required>
+              <input type="text" id="userNameInput" class="name-input" placeholder="What's your name?" autocomplete="off" spellcheck="false" required>
+              <div id="userNameError" class="input-error-msg hidden" role="alert">Vui lòng nhập tên hiển thị của bạn trước khi vào phòng!</div>
             </div>
 
             <!-- Giao diện chọn nhân vật sau khi đặt tên -->

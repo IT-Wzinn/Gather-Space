@@ -2790,17 +2790,45 @@ function setupMediaControls() {
   });
 }
 
+function clearPrejoinNameInput() {
+  if (userNameInput) {
+    userNameInput.value = '';
+    userNameInput.classList.remove('input-error');
+    if (typeof userNameInput.setCustomValidity === 'function') {
+      userNameInput.setCustomValidity('');
+    }
+  }
+  const errEl = document.getElementById('userNameError');
+  if (errEl) errEl.classList.add('hidden');
+}
+
 function loadSavedSettings() {
   try {
-    const savedName = localStorage.getItem('gather_user_name');
-    if (savedName && userNameInput) {
-      userNameInput.value = savedName;
-      updateUserNames(savedName);
-    }
+    localStorage.removeItem('gather_user_name');
   } catch (e) {
     console.warn('localStorage not accessible:', e);
   }
+  clearPrejoinNameInput();
+
+  if (userNameInput && !userNameInput.dataset.boundNameValidation) {
+    userNameInput.dataset.boundNameValidation = '1';
+    userNameInput.addEventListener('input', () => {
+      userNameInput.classList.remove('input-error');
+      if (typeof userNameInput.setCustomValidity === 'function') {
+        userNameInput.setCustomValidity('');
+      }
+      const errEl = document.getElementById('userNameError');
+      if (errEl) errEl.classList.add('hidden');
+    });
+  }
 }
+
+window.addEventListener('pageshow', () => {
+  const prejoin = document.getElementById('prejoinView');
+  if (prejoin && !prejoin.classList.contains('hidden')) {
+    clearPrejoinNameInput();
+  }
+});
 
 // Camera Toggle with real getUserMedia
 async function toggleCamera() {
@@ -3170,9 +3198,23 @@ function setupCharacterSelection() {
 
 // Handle Join
 function handleJoin() {
-  const name = (userNameInput && userNameInput.value.trim()) || 'Lữ Quốc Vinh';
+  const name = userNameInput ? userNameInput.value.trim() : '';
+  if (!name) {
+    const errEl = document.getElementById('userNameError');
+    if (errEl) errEl.classList.remove('hidden');
+    if (userNameInput) {
+      userNameInput.classList.add('input-error');
+      userNameInput.focus();
+      if (typeof userNameInput.setCustomValidity === 'function') {
+        userNameInput.setCustomValidity('Vui lòng nhập tên hiển thị của bạn!');
+        userNameInput.reportValidity();
+      }
+    }
+    return;
+  }
+
   try {
-    localStorage.setItem('gather_user_name', name);
+    localStorage.removeItem('gather_user_name');
   } catch (e) {}
   updateUserNames(name);
 
